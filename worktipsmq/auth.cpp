@@ -1,10 +1,10 @@
-#include "oxenmq.h"
+#include "worktipsmq.h"
 #include "hex.h"
-#include "oxenmq-internal.h"
+#include "worktipsmq-internal.h"
 #include <ostream>
 #include <sstream>
 
-namespace oxenmq {
+namespace worktipsmq {
 
 std::ostream& operator<<(std::ostream& o, AuthLevel a) {
     return o << to_string(a);
@@ -31,7 +31,7 @@ std::string zmtp_metadata(std::string_view key, std::string_view value) {
 }
 
 
-bool OxenMQ::proxy_check_auth(int64_t conn_id, bool outgoing, const peer_info& peer,
+bool WorktipsMQ::proxy_check_auth(int64_t conn_id, bool outgoing, const peer_info& peer,
         zmq::message_t& cmd, const cat_call_t& cat_call, std::vector<zmq::message_t>& data) {
     auto command = view(cmd);
     std::string reply;
@@ -45,7 +45,7 @@ bool OxenMQ::proxy_check_auth(int64_t conn_id, bool outgoing, const peer_info& p
         reply = "FORBIDDEN";
     } else if (cat_call.first->access.local_sn && !local_service_node) {
         LMQ_LOG(warn, "Access denied to ", command, " for peer [", to_hex(peer.pubkey), "]/", peer_address(cmd),
-                ": that command is only available when this OxenMQ is running in service node mode");
+                ": that command is only available when this WorktipsMQ is running in service node mode");
         reply = "NOT_A_SERVICE_NODE";
     } else if (cat_call.first->access.remote_sn && !peer.service_node) {
         LMQ_LOG(warn, "Access denied to ", command, " for peer [", to_hex(peer.pubkey), "]/", peer_address(cmd),
@@ -81,7 +81,7 @@ bool OxenMQ::proxy_check_auth(int64_t conn_id, bool outgoing, const peer_info& p
     return false;
 }
 
-void OxenMQ::set_active_sns(pubkey_set pubkeys) {
+void WorktipsMQ::set_active_sns(pubkey_set pubkeys) {
     if (proxy_thread.joinable()) {
         auto data = bt_serialize(detail::serialize_object(std::move(pubkeys)));
         detail::send_control(get_control_socket(), "SET_SNS", data);
@@ -89,10 +89,10 @@ void OxenMQ::set_active_sns(pubkey_set pubkeys) {
         proxy_set_active_sns(std::move(pubkeys));
     }
 }
-void OxenMQ::proxy_set_active_sns(std::string_view data) {
+void WorktipsMQ::proxy_set_active_sns(std::string_view data) {
     proxy_set_active_sns(detail::deserialize_object<pubkey_set>(bt_deserialize<uintptr_t>(data)));
 }
-void OxenMQ::proxy_set_active_sns(pubkey_set pubkeys) {
+void WorktipsMQ::proxy_set_active_sns(pubkey_set pubkeys) {
     pubkey_set added, removed;
     for (auto it = pubkeys.begin(); it != pubkeys.end(); ) {
         auto& pk = *it;
@@ -118,7 +118,7 @@ void OxenMQ::proxy_set_active_sns(pubkey_set pubkeys) {
     proxy_update_active_sns_clean(std::move(added), std::move(removed));
 }
 
-void OxenMQ::update_active_sns(pubkey_set added, pubkey_set removed) {
+void WorktipsMQ::update_active_sns(pubkey_set added, pubkey_set removed) {
     LMQ_LOG(info, "uh, ", added.size());
     if (proxy_thread.joinable()) {
         std::array<uintptr_t, 2> data;
@@ -129,12 +129,12 @@ void OxenMQ::update_active_sns(pubkey_set added, pubkey_set removed) {
         proxy_update_active_sns(std::move(added), std::move(removed));
     }
 }
-void OxenMQ::proxy_update_active_sns(bt_list_consumer data) {
+void WorktipsMQ::proxy_update_active_sns(bt_list_consumer data) {
     auto added = detail::deserialize_object<pubkey_set>(data.consume_integer<uintptr_t>());
     auto remed = detail::deserialize_object<pubkey_set>(data.consume_integer<uintptr_t>());
     proxy_update_active_sns(std::move(added), std::move(remed));
 }
-void OxenMQ::proxy_update_active_sns(pubkey_set added, pubkey_set removed) {
+void WorktipsMQ::proxy_update_active_sns(pubkey_set added, pubkey_set removed) {
     // We take a caller-provided set of added/removed then filter out any junk (bad pks, conflicting
     // values, pubkeys that already(added) or do not(removed) exist), then pass the purified lists
     // to the _clean version.
@@ -167,7 +167,7 @@ void OxenMQ::proxy_update_active_sns(pubkey_set added, pubkey_set removed) {
     proxy_update_active_sns_clean(std::move(added), std::move(removed));
 }
 
-void OxenMQ::proxy_update_active_sns_clean(pubkey_set added, pubkey_set removed) {
+void WorktipsMQ::proxy_update_active_sns_clean(pubkey_set added, pubkey_set removed) {
     LMQ_LOG(debug, "Updating SN auth status with +", added.size(), "/-", removed.size(), " pubkeys");
 
     // For anything we remove we want close the connection to the SN (if outgoing), and remove the
@@ -192,7 +192,7 @@ void OxenMQ::proxy_update_active_sns_clean(pubkey_set added, pubkey_set removed)
         active_service_nodes.insert(std::move(pk));
 }
 
-void OxenMQ::process_zap_requests() {
+void WorktipsMQ::process_zap_requests() {
     for (std::vector<zmq::message_t> frames; recv_message_parts(zap_auth, frames, zmq::recv_flags::dontwait); frames.clear()) {
 #ifndef NDEBUG
         if (log_level() >= LogLevel::trace) {

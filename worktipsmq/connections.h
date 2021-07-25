@@ -8,7 +8,7 @@
 #include <utility>
 #include <variant>
 
-namespace oxenmq {
+namespace worktipsmq {
 
 struct ConnectionID;
 
@@ -77,18 +77,18 @@ private:
     int64_t id = 0;
     std::string pk;
     std::string route;
-    friend class OxenMQ;
+    friend class WorktipsMQ;
     friend struct std::hash<ConnectionID>;
     template <typename... T>
     friend bt_dict detail::build_send(ConnectionID to, std::string_view cmd, T&&... opts);
     friend std::ostream& operator<<(std::ostream& o, const ConnectionID& conn);
 };
 
-} // namespace oxenmq
+} // namespace worktipsmq
 namespace std {
-    template <> struct hash<oxenmq::ConnectionID> {
-        size_t operator()(const oxenmq::ConnectionID &c) const {
-            return c.sn() ? oxenmq::already_hashed{}(c.pk) :
+    template <> struct hash<worktipsmq::ConnectionID> {
+        size_t operator()(const worktipsmq::ConnectionID &c) const {
+            return c.sn() ? worktipsmq::already_hashed{}(c.pk) :
                 std::hash<int64_t>{}(c.id) + std::hash<std::string>{}(c.route);
         }
     };

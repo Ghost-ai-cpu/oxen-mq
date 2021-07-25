@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021, The Oxen Project
+// Copyright (c) 2020-2021, The Worktips Project
 //
 // All rights reserved.
 //
@@ -32,11 +32,11 @@
 #include <cstdint>
 #include <iosfwd>
 
-namespace oxenmq {
+namespace worktipsmq {
 
 using namespace std::literals;
 
-/** OxenMQ address abstraction class.  This class uses and extends standard ZMQ addresses allowing
+/** WorktipsMQ address abstraction class.  This class uses and extends standard ZMQ addresses allowing
  * extra parameters to be passed in in a relative standard way.
  *
  * External ZMQ addresses generally have two forms that we are concerned with: one for TCP and one

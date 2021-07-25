@@ -1,5 +1,5 @@
-#include "oxenmq.h"
-#include "oxenmq-internal.h"
+#include "worktipsmq.h"
+#include "worktipsmq-internal.h"
 #include "hex.h"
 
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
@@ -17,9 +17,9 @@ extern "C" {
 }
 #endif
 
-namespace oxenmq {
+namespace worktipsmq {
 
-void OxenMQ::proxy_quit() {
+void WorktipsMQ::proxy_quit() {
     LMQ_LOG(debug, "Received quit command, shutting down proxy thread");
 
     assert(std::none_of(workers.begin(), workers.end(), [](auto& worker) { return worker.worker_thread.joinable(); }));
@@ -41,7 +41,7 @@ void OxenMQ::proxy_quit() {
     LMQ_LOG(debug, "Proxy thread teardown complete");
 }
 
-void OxenMQ::proxy_send(bt_dict_consumer data) {
+void WorktipsMQ::proxy_send(bt_dict_consumer data) {
     // NB: bt_dict_consumer goes in alphabetical order
     std::string_view hint;
     std::chrono::milliseconds keep_alive{DEFAULT_SEND_KEEP_ALIVE};
@@ -215,7 +215,7 @@ void OxenMQ::proxy_send(bt_dict_consumer data) {
     }
 }
 
-void OxenMQ::proxy_reply(bt_dict_consumer data) {
+void WorktipsMQ::proxy_reply(bt_dict_consumer data) {
     bool have_conn_id = false;
     ConnectionID conn_id{0};
     if (data.skip_until("conn_id")) {
@@ -269,11 +269,11 @@ void OxenMQ::proxy_reply(bt_dict_consumer data) {
     }
 }
 
-void OxenMQ::proxy_control_message(std::vector<zmq::message_t>& parts) {
+void WorktipsMQ::proxy_control_message(std::vector<zmq::message_t>& parts) {
     // We throw an uncaught exception here because we only generate control messages internally in
-    // oxenmq code: if one of these condition fail it's a oxenmq bug.
+    // worktipsmq code: if one of these condition fail it's a worktipsmq bug.
     if (parts.size() < 2)
-        throw std::logic_error("OxenMQ bug: Expected 2-3 message parts for a proxy control message");
+        throw std::logic_error("WorktipsMQ bug: Expected 2-3 message parts for a proxy control message");
     auto route = view(parts[0]), cmd = view(parts[1]);
     LMQ_TRACE("control message: ", cmd);
     if (parts.size() == 3) {
@@ -332,11 +332,11 @@ void OxenMQ::proxy_control_message(std::vector<zmq::message_t>& parts) {
             return;
         }
     }
-    throw std::runtime_error("OxenMQ bug: Proxy received invalid control command: " +
+    throw std::runtime_error("WorktipsMQ bug: Proxy received invalid control command: " +
             std::string{cmd} + " (" + std::to_string(parts.size()) + ")");
 }
 
-bool OxenMQ::proxy_bind(bind_data& b, size_t bind_index) {
+bool WorktipsMQ::proxy_bind(bind_data& b, size_t bind_index) {
     zmq::socket_t listener{context, zmq::socket_type::router};
     setup_incoming_socket(listener, b.curve, pubkey, privkey, bind_index);
 
@@ -351,11 +351,11 @@ bool OxenMQ::proxy_bind(bind_data& b, size_t bind_index) {
         b.on_bind = nullptr;
     }
     if (!good) {
-        LMQ_LOG(warn, "OxenMQ failed to listen on ", b.address);
+        LMQ_LOG(warn, "WorktipsMQ failed to listen on ", b.address);
         return false;
     }
 
-    LMQ_LOG(info, "OxenMQ listening on ", b.address);
+    LMQ_LOG(info, "WorktipsMQ listening on ", b.address);
 
     b.conn_id = next_conn_id++;
     connections.emplace_hint(connections.end(), b.conn_id, std::move(listener));
@@ -365,7 +365,7 @@ bool OxenMQ::proxy_bind(bind_data& b, size_t bind_index) {
     return true;
 }
 
-void OxenMQ::proxy_loop() {
+void WorktipsMQ::proxy_loop() {
 
 #if defined(__linux__) || defined(__sun) || defined(__MINGW32__)
     pthread_setname_np(pthread_self(), "lmq-proxy");
@@ -413,7 +413,7 @@ void OxenMQ::proxy_loop() {
 
     for (size_t i = 0; i < bind.size(); i++) {
         if (!proxy_bind(bind[i], i)) {
-            LMQ_LOG(warn, "OxenMQ failed to listen on ", bind[i].address);
+            LMQ_LOG(warn, "WorktipsMQ failed to listen on ", bind[i].address);
             throw zmq::error_t{};
         }
     }
@@ -584,7 +584,7 @@ static bool is_error_response(std::string_view cmd) {
 
 // Return true if we recognized/handled the builtin command (even if we reject it for whatever
 // reason)
-bool OxenMQ::proxy_handle_builtin(int64_t conn_id, zmq::socket_t& sock, std::vector<zmq::message_t>& parts) {
+bool WorktipsMQ::proxy_handle_builtin(int64_t conn_id, zmq::socket_t& sock, std::vector<zmq::message_t>& parts) {
     // Doubling as a bool and an offset:
     size_t incoming = sock.get(zmq::sockopt::type) == ZMQ_ROUTER;
 
@@ -681,7 +681,7 @@ bool OxenMQ::proxy_handle_builtin(int64_t conn_id, zmq::socket_t& sock, std::vec
             // pre-1.1.0 sent just a plain UNKNOWNCOMMAND (without the actual command); this was not
             // useful, but also this response is *expected* for things 1.0.5 didn't understand, like
             // FORBIDDEN_SN: so log it only at debug level and move on.
-            LMQ_LOG(debug, "Received plain UNKNOWNCOMMAND; remote is probably an older oxenmq. Ignoring.");
+            LMQ_LOG(debug, "Received plain UNKNOWNCOMMAND; remote is probably an older worktipsmq. Ignoring.");
             return true;
         }
 
@@ -706,7 +706,7 @@ bool OxenMQ::proxy_handle_builtin(int64_t conn_id, zmq::socket_t& sock, std::vec
     return false;
 }
 
-void OxenMQ::proxy_process_queue() {
+void WorktipsMQ::proxy_process_queue() {
     if (max_workers == 0) // shutting down
         return;
 

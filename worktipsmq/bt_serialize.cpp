@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Oxen Project
+// Copyright (c) 2019-2021, The Worktips Project
 //
 // All rights reserved.
 //
@@ -29,7 +29,7 @@
 #include "bt_serialize.h"
 #include <iterator>
 
-namespace oxenmq {
+namespace worktipsmq {
 namespace detail {
 
 /// Reads digits into an unsigned 64-bit int.  
@@ -228,4 +228,4 @@ std::pair<std::string_view, std::string_view> bt_dict_consumer::next_string() {
 }
 
 
-} // namespace oxenmq
+} // namespace worktipsmq

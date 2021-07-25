@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Oxen Project
+// Copyright (c) 2019-2021, The Worktips Project
 //
 // All rights reserved.
 //
@@ -56,7 +56,7 @@
 #error "ZMQ >= 4.3.0 required"
 #endif
 
-namespace oxenmq {
+namespace worktipsmq {
 
 using namespace std::literals;
 
@@ -100,7 +100,7 @@ struct TaggedThreadID {
 private:
     int _id;
     explicit constexpr TaggedThreadID(int id) : _id{id} {}
-    friend class OxenMQ;
+    friend class WorktipsMQ;
     template <typename R> friend class Batch;
 };
 
@@ -112,21 +112,21 @@ struct TimerID {
 private:
     int _id;
     explicit constexpr TimerID(int id) : _id{id} {}
-    friend class OxenMQ;
+    friend class WorktipsMQ;
 };
 
 /**
- * Class that handles OxenMQ listeners, connections, proxying, and workers.  An application
+ * Class that handles WorktipsMQ listeners, connections, proxying, and workers.  An application
  * typically has just one instance of this class.
  */
-class OxenMQ {
+class WorktipsMQ {
 
 private:
 
     /// The global context
     zmq::context_t context;
 
-    /// A unique id for this OxenMQ instance, assigned in a thread-safe manner during construction.
+    /// A unique id for this WorktipsMQ instance, assigned in a thread-safe manner during construction.
     const int object_id;
 
     /// The x25519 keypair of this connection.  For service nodes these are the long-run x25519 keys
@@ -151,10 +151,10 @@ private:
     std::mutex control_sockets_mutex;
 
     /// Called to obtain a "command" socket that attaches to `control` to send commands to the
-    /// proxy thread from other threads.  This socket is unique per thread and OxenMQ instance.
+    /// proxy thread from other threads.  This socket is unique per thread and WorktipsMQ instance.
     zmq::socket_t& get_control_socket();
 
-    /// Per-thread control sockets used by oxenmq threads to talk to this object's proxy thread.
+    /// Per-thread control sockets used by worktipsmq threads to talk to this object's proxy thread.
     std::unordered_map<std::thread::id, std::unique_ptr<zmq::socket_t>> control_sockets;
 
 public:
@@ -187,7 +187,7 @@ public:
     using ReplyCallback = std::function<void(bool success, std::vector<std::string> data)>;
 
     /// Called to write a log message.  This will only be called if the `level` is >= the current
-    /// OxenMQ object log level.  It must be a raw function pointer (or a capture-less lambda) for
+    /// WorktipsMQ object log level.  It must be a raw function pointer (or a capture-less lambda) for
     /// performance reasons.  Takes four arguments: the log level of the message, the filename and
     /// line number where the log message was invoked, and the log message itself.
     using Logger = std::function<void(LogLevel level, const char* file, int line, std::string msg)>;
@@ -198,12 +198,12 @@ public:
     using ConnectFailure = std::function<void(ConnectionID, std::string_view)>;
 
     /// Explicitly non-copyable, non-movable because most things here aren't copyable, and a few
-    /// things aren't movable, either.  If you need to pass the OxenMQ instance around, wrap it
+    /// things aren't movable, either.  If you need to pass the WorktipsMQ instance around, wrap it
     /// in a unique_ptr or shared_ptr.
-    OxenMQ(const OxenMQ&) = delete;
-    OxenMQ& operator=(const OxenMQ&) = delete;
-    OxenMQ(OxenMQ&&) = delete;
-    OxenMQ& operator=(OxenMQ&&) = delete;
+    WorktipsMQ(const WorktipsMQ&) = delete;
+    WorktipsMQ& operator=(const WorktipsMQ&) = delete;
+    WorktipsMQ(WorktipsMQ&&) = delete;
+    WorktipsMQ& operator=(WorktipsMQ&&) = delete;
 
     /** How long to wait for handshaking to complete on external connections before timing out and
      * closing the connection.  Setting this only affects new outgoing connections. */
@@ -213,8 +213,8 @@ public:
      * connections.  Using the pubkey is desirable when connections between endpoints are unique as
      * it allows the listener to recognize that the incoming connection is a reconnection from the
      * same remote and handover routing to the new socket while closing off the (likely dead) old
-     * socket.  This, however, prevents a single OxenMQ instance (or multiple OxenMQ instances using
-     * the same keys) from establishing multiple connections to the same listening OxenMQ, which is
+     * socket.  This, however, prevents a single WorktipsMQ instance (or multiple WorktipsMQ instances using
+     * the same keys) from establishing multiple connections to the same listening WorktipsMQ, which is
      * sometimes useful (for example when testing, or when sharing an authentication key), and so
      * this option can be overridden to `true` to use completely random zmq routing ids on outgoing
      * connections (which will thus allow multiple connections).
@@ -236,13 +236,13 @@ public:
 
     /** Minimum reconnect interval: when a connection fails or dies, wait this long before
      * attempting to reconnect.  (ZMQ may randomize the value somewhat to avoid reconnection
-     * storms).  See RECONNECT_INTERVAL_MAX as well.  The OxenMQ default is 250ms.
+     * storms).  See RECONNECT_INTERVAL_MAX as well.  The WorktipsMQ default is 250ms.
      */
     std::chrono::milliseconds RECONNECT_INTERVAL = 250ms;
 
     /** Maximum reconnect interval.  When this is set to a value larger than RECONNECT_INTERVAL then
      * ZMQ's reconnection logic uses an exponential backoff: each reconnection attempts waits twice
-     * as long as the previous attempt, up to this maximum.  The OxenMQ default is 5 seconds.
+     * as long as the previous attempt, up to this maximum.  The WorktipsMQ default is 5 seconds.
      */
     std::chrono::milliseconds RECONNECT_INTERVAL_MAX = 5s;
 
@@ -571,7 +571,7 @@ private:
     /// Runs any queued batch jobs
     void proxy_run_batch_jobs(std::queue<batch_job>& jobs, int reserved, int& active, bool reply);
 
-    /// BATCH command.  Called with a Batch<R> (see oxenmq/batch.h) object pointer for the proxy to
+    /// BATCH command.  Called with a Batch<R> (see worktipsmq/batch.h) object pointer for the proxy to
     /// take over and queue batch jobs.
     void proxy_batch(detail::Batch* batch);
 
@@ -661,7 +661,7 @@ private:
     /// Details for a pending command; such a command already has authenticated access and is just
     /// waiting for a thread to become available to handle it.  This also gets used (via the
     /// `callback` variant) for injected external jobs to be able to integrate some external
-    /// interface with the oxenmq job queue.
+    /// interface with the worktipsmq job queue.
     struct pending_command {
         category& cat;
         std::string command;
@@ -756,7 +756,7 @@ private:
 
 public:
     /**
-     * OxenMQ constructor.  This constructs the object but does not start it; you will typically
+     * WorktipsMQ constructor.  This constructs the object but does not start it; you will typically
      * want to first add categories and commands, then finish startup by invoking `start()`.
      * (Categories and commands cannot be added after startup).
      *
@@ -780,7 +780,7 @@ public:
      * listening in curve25519 mode (otherwise we couldn't verify its authenticity).  Should return
      * empty for not found or if SN lookups are not supported.
      *
-     * @param allow_incoming is a callback that OxenMQ can use to determine whether an incoming
+     * @param allow_incoming is a callback that WorktipsMQ can use to determine whether an incoming
      * connection should be allowed at all and, if so, whether the connection is from a known
      * service node.  Called with the connecting IP, the remote's verified x25519 pubkey, and the 
      * called on incoming connections with the (verified) incoming connection
@@ -793,7 +793,7 @@ public:
      * @param level the initial log level; defaults to warn.  The log level can be changed later by
      * calling log_level(...).
      */
-    OxenMQ( std::string pubkey,
+    WorktipsMQ( std::string pubkey,
             std::string privkey,
             bool service_node,
             SNRemoteAddress sn_lookup,
@@ -801,26 +801,26 @@ public:
             LogLevel level = LogLevel::warn);
 
     /**
-     * Simplified OxenMQ constructor for a non-listening client or simple listener without any
-     * outgoing SN connection lookup capabilities.  The OxenMQ object will not be able to establish
+     * Simplified WorktipsMQ constructor for a non-listening client or simple listener without any
+     * outgoing SN connection lookup capabilities.  The WorktipsMQ object will not be able to establish
      * new connections (including reconnections) to service nodes by pubkey.
      */
-    explicit OxenMQ(
+    explicit WorktipsMQ(
             Logger logger = [](LogLevel, const char*, int, std::string) { },
             LogLevel level = LogLevel::warn)
-        : OxenMQ("", "", false, [](auto) { return ""s; /*no peer lookups*/ }, std::move(logger), level) {}
+        : WorktipsMQ("", "", false, [](auto) { return ""s; /*no peer lookups*/ }, std::move(logger), level) {}
 
     /**
      * Destructor; instructs the proxy to quit.  The proxy tells all workers to quit, waits for them
      * to quit and rejoins the threads then quits itself.  The outer thread (where the destructor is
      * running) rejoins the proxy thread.
      */
-    ~OxenMQ();
+    ~WorktipsMQ();
 
-    /// Sets the log level of the OxenMQ object.
+    /// Sets the log level of the WorktipsMQ object.
     void log_level(LogLevel level);
 
-    /// Gets the log level of the OxenMQ object.
+    /// Gets the log level of the WorktipsMQ object.
     LogLevel log_level() const;
 
     /**
@@ -883,7 +883,7 @@ public:
      *
      * Aliases should follow the `category.command` format for both the from and to names, and
      * should only be called for `to` categories that are already defined.  The category name is not
-     * currently enforced on the `from` name (for backwards compatility with Oxen's quorumnet code)
+     * currently enforced on the `from` name (for backwards compatility with Worktips's quorumnet code)
      * but will be at some point.
      *
      * Access permissions for an aliased command depend only on the mapped-to value; for example, if
@@ -906,7 +906,7 @@ public:
      * \param name - the name of the thread; will be used in log messages and (if supported by the
      * OS) as the system thread name.
      *
-     * \param start - an optional callback to invoke from the thread as soon as OxenMQ itself starts
+     * \param start - an optional callback to invoke from the thread as soon as WorktipsMQ itself starts
      * up (i.e. after a call to `start()`).
      *
      * \returns a TaggedThreadID object that can be passed to job(), batch(), or add_timer() to
@@ -922,7 +922,7 @@ public:
      * Note that some internal jobs are counted as batch jobs: in particular timers added via
      * add_timer() are scheduled as batch jobs.
      *
-     * Cannot be called after start()ing the OxenMQ instance.
+     * Cannot be called after start()ing the WorktipsMQ instance.
      */
     void set_batch_threads(int threads);
 
@@ -934,7 +934,7 @@ public:
      *
      * Defaults to one-eighth of the number of configured general threads, rounded up.
      *
-     * Cannot be changed after start()ing the OxenMQ instance.
+     * Cannot be changed after start()ing the WorktipsMQ instance.
      */
     void set_reply_threads(int threads);
 
@@ -949,7 +949,7 @@ public:
      *
      * Defaults to `std::thread::hardware_concurrency()`.
      *
-     * Cannot be called after start()ing the OxenMQ instance.
+     * Cannot be called after start()ing the WorktipsMQ instance.
      */
     void set_general_threads(int threads);
 
@@ -1059,14 +1059,14 @@ public:
      * established or failed to establish.
      *
      * @param remote the remote connection address either as implicitly from a string or as a full
-     * oxenmq::address object; see address.h for details.  This specifies both the connection
+     * worktipsmq::address object; see address.h for details.  This specifies both the connection
      * address and whether curve encryption should be used.
      * @param on_connect called with the identifier after the connection has been established.
      * @param on_failure called with the identifier and failure message if we fail to connect.
      * @param options supports various connection options:
      *        - passing an AuthLevel here sets the auth_level for incoming messages on this
      *          connection (instead of AuthLevel::none).
-     *        - anything else should be one of the `oxenmq::connect_option` structs.
+     *        - anything else should be one of the `worktipsmq::connect_option` structs.
      *        - passing a std::chrono::duration type is permitted (but deprecated) for backwards
      *          compatibility; it is equivalent to `connection_option::timeout{duration}`.
      *
@@ -1081,7 +1081,7 @@ public:
     /// version also takes a pubkey (for a secure connection) as a separate argument.  Use of these
     /// is deprecated and discouraged: use an address with connect_option::whatever arguments
     /// instead.
-    [[deprecated("use connect_remote() with a oxenmq::address instead")]]
+    [[deprecated("use connect_remote() with a worktipsmq::address instead")]]
     ConnectionID connect_remote(std::string_view remote, ConnectSuccess on_connect, ConnectFailure on_failure,
             AuthLevel auth_level = AuthLevel::none, std::chrono::milliseconds timeout = REMOTE_CONNECT_TIMEOUT);
 
@@ -1089,7 +1089,7 @@ public:
     /// encryption as separate arguments.  New code should either use a pubkey-embedded address
     /// string, or specify remote address and pubkey with an `address` object such as:
     ///     connect_remote(address{remote, pubkey}, ...)
-    [[deprecated("use connect_remote() with a oxenmq::address instead")]]
+    [[deprecated("use connect_remote() with a worktipsmq::address instead")]]
     ConnectionID connect_remote(std::string_view remote, ConnectSuccess on_connect, ConnectFailure on_failure,
             std::string_view pubkey,
             AuthLevel auth_level = AuthLevel::none,
@@ -1114,7 +1114,7 @@ public:
 
     /**
      * Queue a message to be relayed to the given service node or remote without requiring a reply.
-     * OxenMQ will attempt to relay the message (first connecting and handshaking to the remote SN
+     * WorktipsMQ will attempt to relay the message (first connecting and handshaking to the remote SN
      * if not already connected).
      *
      * If a new connection is established it will have a relatively short (30s) idle timeout.  If
@@ -1186,10 +1186,10 @@ public:
     template <typename... T>
     void request(ConnectionID to, std::string_view cmd, ReplyCallback callback, const T&... opts);
 
-    /** Injects an external task into the oxenmq command queue.  This is used to allow connecting
-     * non-OxenMQ requests into the OxenMQ thread pool as if they were ordinary requests, to be
+    /** Injects an external task into the worktipsmq command queue.  This is used to allow connecting
+     * non-WorktipsMQ requests into the WorktipsMQ thread pool as if they were ordinary requests, to be
      * scheduled as commands of an individual category.  For example, you might support rpc requests
-     * via OxenMQ as `rpc.some_command` and *also* accept them over HTTP.  Using `inject_task()`
+     * via WorktipsMQ as `rpc.some_command` and *also* accept them over HTTP.  Using `inject_task()`
      * allows you to handle processing the request in the same thread pool with the same priority as
      * `rpc.*` commands.
      *
@@ -1212,12 +1212,12 @@ public:
      */
     void inject_task(const std::string& category, std::string command, std::string remote, std::function<void()> callback);
 
-    /// The key pair this OxenMQ was created with; if empty keys were given during construction then
+    /// The key pair this WorktipsMQ was created with; if empty keys were given during construction then
     /// this returns the generated keys.
     const std::string& get_pubkey() const { return pubkey; }
     const std::string& get_privkey() const { return privkey; }
 
-    /** Updates (or initially sets) OxenMQ's list of service node pubkeys with the given list.
+    /** Updates (or initially sets) WorktipsMQ's list of service node pubkeys with the given list.
      *
      * This has two main effects:
      *
@@ -1240,7 +1240,7 @@ public:
 
     /** Updates the list of active pubkeys by adding or removing the given pubkeys from the existing
      * list.  This is more efficient when the incremental information is already available; if it
-     * isn't, simply call set_active_sns with a new list to have OxenMQ figure out what was added or
+     * isn't, simply call set_active_sns with a new list to have WorktipsMQ figure out what was added or
      * removed.
      *
      * \param added new pubkeys that were added since the last set_active_sns or update_active_sns
@@ -1255,7 +1255,7 @@ public:
     /**
      * Batches a set of jobs to be executed by workers, optionally followed by a completion function.
      *
-     * Must include oxenmq/batch.h to use.
+     * Must include worktipsmq/batch.h to use.
      */
     template <typename R>
     void batch(Batch<R>&& batch);
@@ -1331,18 +1331,18 @@ public:
 ///     .add_request_command("b", ...)
 ///     ;
 class CatHelper {
-    OxenMQ& lmq;
+    WorktipsMQ& lmq;
     std::string cat;
 
 public:
-    CatHelper(OxenMQ& lmq, std::string cat) : lmq{lmq}, cat{std::move(cat)} {}
+    CatHelper(WorktipsMQ& lmq, std::string cat) : lmq{lmq}, cat{std::move(cat)} {}
 
-    CatHelper& add_command(std::string name, OxenMQ::CommandCallback callback) {
+    CatHelper& add_command(std::string name, WorktipsMQ::CommandCallback callback) {
         lmq.add_command(cat, std::move(name), std::move(callback));
         return *this;
     }
 
-    CatHelper& add_request_command(std::string name, OxenMQ::CommandCallback callback) {
+    CatHelper& add_request_command(std::string name, WorktipsMQ::CommandCallback callback) {
         lmq.add_request_command(cat, std::move(name), std::move(callback));
         return *this;
     }
@@ -1463,7 +1463,7 @@ struct queue_full {
 namespace connect_option {
 
 /// Specifies whether the connection should use pubkey-based routing for this connection, overriding
-/// the default (OxenMQ::EPHEMERAL_ROUTING_ID).  See OxenMQ::EPHEMERAL_ROUTING_ID for a description
+/// the default (WorktipsMQ::EPHEMERAL_ROUTING_ID).  See WorktipsMQ::EPHEMERAL_ROUTING_ID for a description
 /// of this.
 ///
 /// Typically use: `connect_options::ephemeral_routing_id{}` or `connect_options::ephemeral_routing_id{false}`.
@@ -1509,7 +1509,7 @@ struct hint {
 namespace detail {
 
 /// Takes an rvalue reference, moves it into a new instance then returns a uintptr_t value
-/// containing the pointer to be serialized to pass (via oxenmq queues) from one thread to another.
+/// containing the pointer to be serialized to pass (via worktipsmq queues) from one thread to another.
 /// Must be matched with a deserializer_pointer on the other side to reconstitute the object and
 /// destroy the intermediate pointer.
 template <typename T>
@@ -1612,32 +1612,32 @@ bt_dict build_send(ConnectionID to, std::string_view cmd, T&&... opts) {
 
 }
 
-inline void apply_connect_option(OxenMQ& omq, bool remote, bt_dict& opts, const AuthLevel& auth) {
+inline void apply_connect_option(WorktipsMQ& omq, bool remote, bt_dict& opts, const AuthLevel& auth) {
     if (remote) opts["auth_level"] = static_cast<std::underlying_type_t<AuthLevel>>(auth);
     else omq.log(LogLevel::warn, __FILE__, __LINE__, "AuthLevel ignored for connect_sn(...)");
 }
-inline void apply_connect_option(OxenMQ&, bool, bt_dict& opts, const connect_option::ephemeral_routing_id& er) {
+inline void apply_connect_option(WorktipsMQ&, bool, bt_dict& opts, const connect_option::ephemeral_routing_id& er) {
     opts["ephemeral_rid"] = er.use_ephemeral_routing_id;
 }
-inline void apply_connect_option(OxenMQ& omq, bool remote, bt_dict& opts, const connect_option::timeout& timeout) {
+inline void apply_connect_option(WorktipsMQ& omq, bool remote, bt_dict& opts, const connect_option::timeout& timeout) {
     if (remote) opts["timeout"] = timeout.time.count();
     else omq.log(LogLevel::warn, __FILE__, __LINE__, "connect_option::timeout ignored for connect_sn(...)");
 }
-inline void apply_connect_option(OxenMQ& omq, bool remote, bt_dict& opts, const connect_option::keep_alive& ka) {
+inline void apply_connect_option(WorktipsMQ& omq, bool remote, bt_dict& opts, const connect_option::keep_alive& ka) {
     if (!remote) opts["keep_alive"] = ka.time.count();
     else omq.log(LogLevel::warn, __FILE__, __LINE__, "connect_option::keep_alive ignored for connect_remote(...)");
 }
-inline void apply_connect_option(OxenMQ& omq, bool remote, bt_dict& opts, const connect_option::hint& hint) {
+inline void apply_connect_option(WorktipsMQ& omq, bool remote, bt_dict& opts, const connect_option::hint& hint) {
     if (!remote) opts["hint"] = hint.address;
     else omq.log(LogLevel::warn, __FILE__, __LINE__, "connect_option::hint ignored for connect_remote(...)");
 }
-[[deprecated("use oxenmq::connect_option::keep_alive or ::timeout instead")]]
-inline void apply_connect_option(OxenMQ&, bool remote, bt_dict& opts, std::chrono::milliseconds time) {
+[[deprecated("use worktipsmq::connect_option::keep_alive or ::timeout instead")]]
+inline void apply_connect_option(WorktipsMQ&, bool remote, bt_dict& opts, std::chrono::milliseconds time) {
     if (remote) opts["timeout"] = time.count();
     else opts["keep_alive"] = time.count();
 }
-[[deprecated("use oxenmq::connect_option::hint{hint} instead of a direct string argument")]]
-inline void apply_connect_option(OxenMQ& omq, bool remote, bt_dict& opts, std::string_view hint) {
+[[deprecated("use worktipsmq::connect_option::hint{hint} instead of a direct string argument")]]
+inline void apply_connect_option(WorktipsMQ& omq, bool remote, bt_dict& opts, std::string_view hint) {
     if (!remote) opts["hint"] = hint;
     else omq.log(LogLevel::warn, __FILE__, __LINE__, "string argument ignored for connect_remote(...)");
 }
@@ -1645,7 +1645,7 @@ inline void apply_connect_option(OxenMQ& omq, bool remote, bt_dict& opts, std::s
 } // namespace detail
 
 template <typename... Option>
-ConnectionID OxenMQ::connect_remote(const address& remote, ConnectSuccess on_connect, ConnectFailure on_failure,
+ConnectionID WorktipsMQ::connect_remote(const address& remote, ConnectSuccess on_connect, ConnectFailure on_failure,
             const Option&... options) {
     bt_dict opts;
     (detail::apply_connect_option(*this, true, opts, options), ...);
@@ -1663,7 +1663,7 @@ ConnectionID OxenMQ::connect_remote(const address& remote, ConnectSuccess on_con
 }
 
 template <typename... Option>
-ConnectionID OxenMQ::connect_sn(std::string_view pubkey, const Option&... options) {
+ConnectionID WorktipsMQ::connect_sn(std::string_view pubkey, const Option&... options) {
     bt_dict opts{
         {"keep_alive", std::chrono::microseconds{DEFAULT_CONNECT_SN_KEEP_ALIVE}.count()},
         {"ephemeral_rid", EPHEMERAL_ROUTING_ID},
@@ -1679,7 +1679,7 @@ ConnectionID OxenMQ::connect_sn(std::string_view pubkey, const Option&... option
 }
 
 template <typename... T>
-void OxenMQ::send(ConnectionID to, std::string_view cmd, const T&... opts) {
+void WorktipsMQ::send(ConnectionID to, std::string_view cmd, const T&... opts) {
     detail::send_control(get_control_socket(), "SEND",
             bt_serialize(detail::build_send(std::move(to), cmd, opts...)));
 }
@@ -1687,7 +1687,7 @@ void OxenMQ::send(ConnectionID to, std::string_view cmd, const T&... opts) {
 std::string make_random_string(size_t size);
 
 template <typename... T>
-void OxenMQ::request(ConnectionID to, std::string_view cmd, ReplyCallback callback, const T &...opts) {
+void WorktipsMQ::request(ConnectionID to, std::string_view cmd, ReplyCallback callback, const T &...opts) {
     const auto reply_tag = make_random_string(15); // 15 random bytes is lots and should keep us in most stl implementations' small string optimization
     bt_dict control_data = detail::build_send(std::move(to), cmd, reply_tag, opts...);
     control_data["request"] = true;
@@ -1698,37 +1698,37 @@ void OxenMQ::request(ConnectionID to, std::string_view cmd, ReplyCallback callba
 
 template <typename... Args>
 void Message::send_back(std::string_view command, Args&&... args) {
-    oxenmq.send(conn, command, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
+    worktipsmq.send(conn, command, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
 }
 template <typename... Args>
 void Message::DeferredSend::back(std::string_view command, Args&&... args) const {
-    oxenmq.send(conn, command, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
+    worktipsmq.send(conn, command, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 void Message::send_reply(Args&&... args) {
     assert(!reply_tag.empty());
-    oxenmq.send(conn, "REPLY", reply_tag, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
+    worktipsmq.send(conn, "REPLY", reply_tag, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
 }
 template <typename... Args>
 void Message::DeferredSend::reply(Args&&... args) const {
     assert(!reply_tag.empty());
-    oxenmq.send(conn, "REPLY", reply_tag, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
+    worktipsmq.send(conn, "REPLY", reply_tag, send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
 }
 
 template <typename Callback, typename... Args>
 void Message::send_request(std::string_view cmd, Callback&& callback, Args&&... args) {
-    oxenmq.request(conn, cmd, std::forward<Callback>(callback),
+    worktipsmq.request(conn, cmd, std::forward<Callback>(callback),
             send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
 }
 template <typename Callback, typename... Args>
 void Message::DeferredSend::request(std::string_view cmd, Callback&& callback, Args&&... args) const {
-    oxenmq.request(conn, cmd, std::forward<Callback>(callback),
+    worktipsmq.request(conn, cmd, std::forward<Callback>(callback),
             send_option::optional{!conn.sn()}, std::forward<Args>(args)...);
 }
 
 // When log messages are invoked we strip out anything before this in the filename:
-constexpr std::string_view LOG_PREFIX{"oxenmq/", 7};
+constexpr std::string_view LOG_PREFIX{"worktipsmq/", 7};
 inline std::string_view trim_log_filename(std::string_view local_file) {
     auto chop = local_file.rfind(LOG_PREFIX);
     if (chop != local_file.npos)
@@ -1737,7 +1737,7 @@ inline std::string_view trim_log_filename(std::string_view local_file) {
 }
 
 template <typename... T>
-void OxenMQ::log(LogLevel lvl, const char* file, int line, const T&... stuff) {
+void WorktipsMQ::log(LogLevel lvl, const char* file, int line, const T&... stuff) {
     if (log_level() < lvl)
         return;
 
@@ -1748,6 +1748,6 @@ void OxenMQ::log(LogLevel lvl, const char* file, int line, const T&... stuff) {
 
 std::ostream &operator<<(std::ostream &os, LogLevel lvl);
 
-} // namespace oxenmq
+} // namespace worktipsmq
 
 // vim:sw=4:et

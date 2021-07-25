@@ -1,13 +1,13 @@
 #include "common.h"
-#include <oxenmq/hex.h>
+#include <worktipsmq/hex.h>
 #include <map>
 #include <set>
 
-using namespace oxenmq;
+using namespace worktipsmq;
 
 TEST_CASE("basic commands", "[commands]") {
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -31,7 +31,7 @@ TEST_CASE("basic commands", "[commands]") {
 
     server.start();
 
-    OxenMQ client{get_logger("C» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("C» "), LogLevel::trace};
 
     client.add_category("public", Access{AuthLevel::none});
     client.add_command("public", "hi", [&](auto&) { his++; });
@@ -77,7 +77,7 @@ TEST_CASE("basic commands", "[commands]") {
 
 TEST_CASE("outgoing auth level", "[commands][auth]") {
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -93,7 +93,7 @@ TEST_CASE("outgoing auth level", "[commands][auth]") {
 
     server.start();
 
-    OxenMQ client{get_logger("C» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("C» "), LogLevel::trace};
 
     std::atomic<int> public_hi{0}, basic_hi{0}, admin_hi{0};
     client.add_category("public", Access{AuthLevel::none});
@@ -159,7 +159,7 @@ TEST_CASE("deferred replies on incoming connections", "[commands][hey google]") 
     // original node.
 
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -182,7 +182,7 @@ TEST_CASE("deferred replies on incoming connections", "[commands][hey google]") 
             m.send_reply("Okay, I'll remember that.");
 
             if (bd)
-                m.oxenmq.send(backdoor, "backdoor.data", m.data[0]);
+                m.worktipsmq.send(backdoor, "backdoor.data", m.data[0]);
     });
     server.add_command("hey google", "recall", [&](Message& m) {
             decltype(subscribers) subs;
@@ -207,7 +207,7 @@ TEST_CASE("deferred replies on incoming connections", "[commands][hey google]") 
 
     std::set<std::string> backdoor_details;
 
-    OxenMQ nsa{get_logger("NSA» ")};
+    WorktipsMQ nsa{get_logger("NSA» ")};
     nsa.add_category("backdoor", Access{AuthLevel::admin});
     nsa.add_command("backdoor", "data", [&](Message& m) {
         auto l = catch_lock();
@@ -223,7 +223,7 @@ TEST_CASE("deferred replies on incoming connections", "[commands][hey google]") 
         REQUIRE( backdoor );
     }
 
-    std::vector<std::unique_ptr<OxenMQ>> clients;
+    std::vector<std::unique_ptr<WorktipsMQ>> clients;
     std::vector<ConnectionID> conns;
     std::map<int, std::set<std::string>> personal_details{
         {0, {"Loretta"s, "photos"s}},
@@ -239,7 +239,7 @@ TEST_CASE("deferred replies on incoming connections", "[commands][hey google]") 
     std::map<int, std::set<std::string>> google_knows;
     int things_remembered{0};
     for (int i = 0; i < 5; i++) {
-        clients.push_back(std::make_unique<OxenMQ>(
+        clients.push_back(std::make_unique<WorktipsMQ>(
             get_logger("C" + std::to_string(i) + "» "), LogLevel::trace
         ));
         auto& c = clients.back();
@@ -279,7 +279,7 @@ TEST_CASE("deferred replies on incoming connections", "[commands][hey google]") 
 
 TEST_CASE("send failure callbacks", "[commands][queue_full]") {
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -306,7 +306,7 @@ TEST_CASE("send failure callbacks", "[commands][queue_full]") {
     server.start();
 
     // Use a raw socket here because I want to stall it by not reading from it at all, and that is
-    // hard with OxenMQ.
+    // hard with WorktipsMQ.
     zmq::context_t client_ctx;
     zmq::socket_t client{client_ctx, zmq::socket_type::dealer};
     client.connect(listen);
@@ -373,7 +373,7 @@ TEST_CASE("send failure callbacks", "[commands][queue_full]") {
 
 TEST_CASE("data parts", "[commands][send][data_parts]") {
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -393,7 +393,7 @@ TEST_CASE("data parts", "[commands][send][data_parts]") {
     });
     server.start();
 
-    OxenMQ client{get_logger("C» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("C» "), LogLevel::trace};
     client.start();
 
     std::atomic<bool> got{false};
@@ -414,7 +414,7 @@ TEST_CASE("data parts", "[commands][send][data_parts]") {
     }
 
     std::vector some_data{{"abc"s, "def"s, "omg123\0zzz"s}};
-    client.send(c, "public.hello", oxenmq::send_option::data_parts(some_data.begin(), some_data.end()));
+    client.send(c, "public.hello", worktipsmq::send_option::data_parts(some_data.begin(), some_data.end()));
     reply_sleep();
     {
         auto lock = catch_lock();
@@ -430,10 +430,10 @@ TEST_CASE("data parts", "[commands][send][data_parts]") {
     std::vector some_data2{{"a"sv, "b"sv, "\0"sv}};
     client.send(c, "public.hello",
             "hi",
-            oxenmq::send_option::data_parts(some_data2.begin(), some_data2.end()),
+            worktipsmq::send_option::data_parts(some_data2.begin(), some_data2.end()),
             "another",
             "string"sv,
-            oxenmq::send_option::data_parts(some_data.begin(), some_data.end()),
+            worktipsmq::send_option::data_parts(some_data.begin(), some_data.end()),
             opt1, opt2, opt3, opt4
             );
 
@@ -456,7 +456,7 @@ TEST_CASE("data parts", "[commands][send][data_parts]") {
 
 TEST_CASE("deferred replies", "[commands][send][deferred]") {
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -479,7 +479,7 @@ TEST_CASE("deferred replies", "[commands][send][deferred]") {
     server.set_general_threads(1);
     server.start();
 
-    OxenMQ client(
+    WorktipsMQ client(
         get_logger("C» "),
         LogLevel::trace);
     //client.log_level(LogLevel::trace);

@@ -20,7 +20,7 @@ add_executable(tests ${LMQ_TEST_SRC})
 
 find_package(Threads)
 
-target_link_libraries(tests Catch2::Catch2 oxenmq Threads::Threads)
+target_link_libraries(tests Catch2::Catch2 worktipsmq Threads::Threads)
 
 set_target_properties(tests PROPERTIES
     CXX_STANDARD 17

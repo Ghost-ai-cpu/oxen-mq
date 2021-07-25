@@ -9,7 +9,7 @@
 #include "base32z.h"
 #include "base64.h"
 
-namespace oxenmq {
+namespace worktipsmq {
 
 constexpr size_t enc_length(address::encoding enc) {
     return enc == address::encoding::hex ? 64 :

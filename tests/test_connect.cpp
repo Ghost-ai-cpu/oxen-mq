@@ -1,5 +1,5 @@
 #include "common.h"
-#include <oxenmq/hex.h>
+#include <worktipsmq/hex.h>
 extern "C" {
 #include <sodium.h>
 }
@@ -7,7 +7,7 @@ extern "C" {
 
 TEST_CASE("connections with curve authentication", "[curve][connect]") {
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -20,7 +20,7 @@ TEST_CASE("connections with curve authentication", "[curve][connect]") {
     server.add_request_command("public", "hello", [&](Message& m) { m.send_reply("hi"); });
     server.start();
 
-    OxenMQ client{get_logger("C» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("C» "), LogLevel::trace};
 
     client.start();
 
@@ -55,7 +55,7 @@ TEST_CASE("self-connection SN optimization", "[connect][self]") {
     REQUIRE(sodium_init() != -1);
     auto listen_addr = random_localhost();
     crypto_box_keypair(reinterpret_cast<unsigned char*>(&pubkey[0]), reinterpret_cast<unsigned char*>(&privkey[0]));
-    OxenMQ sn{
+    WorktipsMQ sn{
         pubkey, privkey,
         true,
         [&](auto pk) { if (pk == pubkey) return listen_addr; else return ""s; },
@@ -92,7 +92,7 @@ TEST_CASE("self-connection SN optimization", "[connect][self]") {
 
 TEST_CASE("plain-text connections", "[plaintext][connect]") {
     std::string listen = random_localhost();
-    OxenMQ server{get_logger("S» "), LogLevel::trace};
+    WorktipsMQ server{get_logger("S» "), LogLevel::trace};
 
     server.add_category("public", Access{AuthLevel::none});
     server.add_request_command("public", "hello", [&](Message& m) { m.send_reply("hi"); });
@@ -101,7 +101,7 @@ TEST_CASE("plain-text connections", "[plaintext][connect]") {
 
     server.start();
 
-    OxenMQ client{get_logger("C» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("C» "), LogLevel::trace};
 
     client.start();
 
@@ -130,7 +130,7 @@ TEST_CASE("plain-text connections", "[plaintext][connect]") {
 }
 
 TEST_CASE("post-start listening", "[connect][listen]") {
-    OxenMQ server{get_logger("S» "), LogLevel::trace};
+    WorktipsMQ server{get_logger("S» "), LogLevel::trace};
     server.add_category("x", AuthLevel::none)
         .add_request_command("y", [&](Message& m) { m.send_reply("hi", m.data[0]); });
     server.start();
@@ -156,7 +156,7 @@ TEST_CASE("post-start listening", "[connect][listen]") {
     }
 
 
-    OxenMQ client{get_logger("C1» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("C1» "), LogLevel::trace};
     client.start();
     std::atomic<int> conns = 0;
     auto c1 = client.connect_remote(address{listen_curve, server.get_pubkey()},
@@ -189,7 +189,7 @@ TEST_CASE("post-start listening", "[connect][listen]") {
 
 TEST_CASE("unique connection IDs", "[connect][id]") {
     std::string listen = random_localhost();
-    OxenMQ server{get_logger("S» "), LogLevel::trace};
+    WorktipsMQ server{get_logger("S» "), LogLevel::trace};
 
     ConnectionID first, second;
     server.add_category("x", Access{AuthLevel::none})
@@ -201,8 +201,8 @@ TEST_CASE("unique connection IDs", "[connect][id]") {
 
     server.start();
 
-    OxenMQ client1{get_logger("C1» "), LogLevel::trace};
-    OxenMQ client2{get_logger("C2» "), LogLevel::trace};
+    WorktipsMQ client1{get_logger("C1» "), LogLevel::trace};
+    WorktipsMQ client2{get_logger("C2» "), LogLevel::trace};
     client1.start();
     client2.start();
 
@@ -244,7 +244,7 @@ TEST_CASE("unique connection IDs", "[connect][id]") {
 
 
 TEST_CASE("SN disconnections", "[connect][disconnect]") {
-    std::vector<std::unique_ptr<OxenMQ>> lmq;
+    std::vector<std::unique_ptr<WorktipsMQ>> lmq;
     std::vector<std::string> pubkey, privkey;
     std::unordered_map<std::string, std::string> conn;
     REQUIRE(sodium_init() != -1);
@@ -258,7 +258,7 @@ TEST_CASE("SN disconnections", "[connect][disconnect]") {
     }
     std::atomic<int> his{0};
     for (int i = 0; i < pubkey.size(); i++) {
-        lmq.push_back(std::make_unique<OxenMQ>(
+        lmq.push_back(std::make_unique<WorktipsMQ>(
             pubkey[i], privkey[i], true,
             [conn](auto pk) { auto it = conn.find((std::string) pk); if (it != conn.end()) return it->second; return ""s; },
             get_logger("S" + std::to_string(i) + "» "),
@@ -296,7 +296,7 @@ TEST_CASE("SN auth checks", "[sandwich][auth]") {
     privkey.resize(crypto_box_SECRETKEYBYTES);
     REQUIRE(sodium_init() != -1);
     crypto_box_keypair(reinterpret_cast<unsigned char*>(&pubkey[0]), reinterpret_cast<unsigned char*>(&privkey[0]));
-    OxenMQ server{
+    WorktipsMQ server{
         pubkey, privkey,
         true, // service node
         [](auto) { return ""; },
@@ -323,7 +323,7 @@ TEST_CASE("SN auth checks", "[sandwich][auth]") {
         .add_request_command("make", [&](Message& m) { m.send_reply("okay"); });
     server.start();
 
-    OxenMQ client{
+    WorktipsMQ client{
         "", "", false,
         [&](auto remote_pk) { if (remote_pk == pubkey) return listen; return ""s; },
         get_logger("B» "), LogLevel::trace};
@@ -410,7 +410,7 @@ TEST_CASE("SN single worker test", "[connect][worker]") {
     // Tests a failure case that could trigger when all workers are allocated (here we make that
     // simpler by just having one worker).
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "",
         false, // service node
         [](auto) { return ""; },
@@ -426,7 +426,7 @@ TEST_CASE("SN single worker test", "[connect][worker]") {
         ;
     server.start();
 
-    OxenMQ client{get_logger("B» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("B» "), LogLevel::trace};
     client.start();
     auto conn = client.connect_remote(address{listen}, [](auto) {}, [](auto, auto) {});
 
@@ -450,7 +450,7 @@ TEST_CASE("SN single worker test", "[connect][worker]") {
 TEST_CASE("SN backchatter", "[connect][sn]") {
     // When we have a SN connection A -> B and then B sends a message to A on that existing
     // connection, A should see it as coming from B.
-    std::vector<std::unique_ptr<OxenMQ>> omq;
+    std::vector<std::unique_ptr<WorktipsMQ>> omq;
     std::vector<std::string> pubkey, privkey;
     std::unordered_map<std::string, std::string> conn;
     REQUIRE(sodium_init() != -1);
@@ -464,7 +464,7 @@ TEST_CASE("SN backchatter", "[connect][sn]") {
     }
 
     for (int i = 0; i < pubkey.size(); i++) {
-        omq.push_back(std::make_unique<OxenMQ>(
+        omq.push_back(std::make_unique<WorktipsMQ>(
             pubkey[i], privkey[i], true,
             [conn](auto pk) { auto it = conn.find((std::string) pk); if (it != conn.end()) return it->second; return ""s; },
             get_logger("S" + std::to_string(i) + "» "),
@@ -478,7 +478,7 @@ TEST_CASE("SN backchatter", "[connect][sn]") {
     std::string f;
     omq[0]->add_category("a", Access{AuthLevel::none, true})
         .add_command("a", [&](Message& m) {
-            m.oxenmq.send(m.conn, "b.b", "abc");
+            m.worktipsmq.send(m.conn, "b.b", "abc");
             //m.send_back("b.b", "abc");
         })
         .add_command("z", [&](Message& m) {

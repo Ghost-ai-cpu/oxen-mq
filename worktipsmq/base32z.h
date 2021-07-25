@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Oxen Project
+// Copyright (c) 2019-2021, The Worktips Project
 //
 // All rights reserved.
 //
@@ -34,7 +34,7 @@
 #include <cassert>
 #include "byte_type.h"
 
-namespace oxenmq {
+namespace worktipsmq {
 
 namespace detail {
 

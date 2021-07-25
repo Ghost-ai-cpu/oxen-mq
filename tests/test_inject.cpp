@@ -1,10 +1,10 @@
 #include "common.h"
 
-using namespace oxenmq;
+using namespace worktipsmq;
 
 TEST_CASE("injected external commands", "[injected]") {
     std::string listen = random_localhost();
-    OxenMQ server{
+    WorktipsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -24,7 +24,7 @@ TEST_CASE("injected external commands", "[injected]") {
 
     server.start();
 
-    OxenMQ client{get_logger("C» "), LogLevel::trace};
+    WorktipsMQ client{get_logger("C» "), LogLevel::trace};
     client.start();
 
     std::atomic<bool> got{false};

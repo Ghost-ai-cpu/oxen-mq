@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Oxen Project
+// Copyright (c) 2019-2021, The Worktips Project
 //
 // All rights reserved.
 //
@@ -38,7 +38,7 @@
 #include <string>
 #include <string_view>
 
-namespace oxenmq {
+namespace worktipsmq {
 
 struct bt_value;
 

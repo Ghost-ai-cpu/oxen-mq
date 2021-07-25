@@ -1,9 +1,9 @@
 #pragma once
-#include "oxenmq/oxenmq.h"
+#include "worktipsmq/worktipsmq.h"
 #include <catch2/catch.hpp>
 #include <chrono>
 
-using namespace oxenmq;
+using namespace worktipsmq;
 
 static auto startup = std::chrono::steady_clock::now();
 
@@ -45,7 +45,7 @@ inline void wait_for_conn(std::atomic<bool> &c) {
 /// Waits enough time for us to receive a reply from a localhost remote.
 inline void reply_sleep() { std::this_thread::sleep_for(10ms); }
 
-inline OxenMQ::Logger get_logger(std::string prefix = "") {
+inline WorktipsMQ::Logger get_logger(std::string prefix = "") {
     std::string me = "tests/common.h";
     std::string strip = __FILE__;
     if (strip.substr(strip.size() - me.size()) == me)
