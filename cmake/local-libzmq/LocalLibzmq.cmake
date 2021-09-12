@@ -1,7 +1,7 @@
 set(LIBZMQ_PREFIX ${CMAKE_BINARY_DIR}/libzmq)
-set(ZeroMQ_VERSION 4.3.4.1)
-set(LIBZMQ_URL https://github.com/Ghost-ai-cpu/libzmq/releases/download/v${ZeroMQ_VERSION}/zeromq-${ZeroMQ_VERSION}.tar.gz)
-set(LIBZMQ_HASH SHA512=6c6888c66d835d0ab3f7a5a374887d772ecd3d0f9bf5c6f48db35242b0901b8ab22a9bf6370db252ecdc5bb1f086fd00efac60651e28042ec381c868715827be)
+set(ZeroMQ_VERSION 4.3.4)
+set(LIBZMQ_URL https://github.com/zeromq/libzmq/releases/download/v${ZeroMQ_VERSION}/zeromq-${ZeroMQ_VERSION}.tar.gz)
+set(LIBZMQ_HASH SHA512=e198ef9f82d392754caadd547537666d4fba0afd7d027749b3adae450516bcf284d241d4616cad3cb4ad9af8c10373d456de92dc6d115b037941659f141e7c0e)
 
 message(${LIBZMQ_URL})
 
